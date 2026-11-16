@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - ProctorLite{% endblock %}
+{% block content %}
+<h1>Invigilator Dashboard</h1>
+<p class="hint">Sessions are ranked by suspicion score to help prioritise review. No automatic penalties are applied.</p>
+<table>
+  <thead>
+    <tr><th>Student</th><th>Started</th><th>Events</th><th>Score</th><th>Decision</th><th></th></tr>
+  </thead>
+  <tbody>
+  {% for r in rows %}
+    <tr>
+      <td>{{ r.s.student_id }}</td>
+      <td>{{ r.s.consent_at | fmt_time }}</td>
+      <td>{{ r.n }}</td>
+      <td>{{ r.score }}</td>
+      <td>{{ r.decision }}</td>
+      <td>
+        <a href="{{ url_for('session_detail', sid=r.s.session_id) }}">Review</a> |
+        <a href="{{ url_for('report', sid=r.s.session_id) }}">Report</a>
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="6">No sessions yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

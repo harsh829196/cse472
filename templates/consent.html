@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Consent - ProctorLite{% endblock %}
+{% block content %}
+<h1>Online Exam: Monitoring Notice &amp; Consent</h1>
+<p>Please read this before you begin. You must agree to continue.</p>
+
+<div class="card">
+  <h2>What is monitored</h2>
+  <ul>
+    <li><b>Webcam (face analysis only):</b> number of faces in frame, whether your face is absent, head direction and gaze direction.</li>
+    <li><b>Browser activity:</b> switching tabs, losing window focus, leaving fullscreen, copy/paste attempts.</li>
+  </ul>
+  <h2>What is stored</h2>
+  <ul>
+    <li>Only <b>event records</b>: event type, timestamp, duration.</li>
+    <li><b>No video, images or audio</b> leave your computer. Face analysis runs locally in your browser.</li>
+  </ul>
+  <h2>How it is used</h2>
+  <ul>
+    <li>Events are shown to a human invigilator for review. <b>Nothing is penalised automatically.</b></li>
+    <li>Flags are indicators, not proof. You can contest any flag.</li>
+    <li>Data is kept for <b>{{ retention_days }} days</b>, then deleted.</li>
+  </ul>
+</div>
+
+<form method="post" action="{{ url_for('consent_submit') }}" class="card">
+  <label>Student ID
+    <input name="student_id" required autocomplete="off">
+  </label>
+  <label class="check">
+    <input type="checkbox" name="agree" required>
+    I have read the notice above and consent to this monitoring for this exam.
+  </label>
+  <button type="submit">Start exam</button>
+</form>
+{% endblock %}

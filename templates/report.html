@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Integrity Report - {{ s.student_id }}{% endblock %}
+{% block content %}
+<h1>Integrity Report</h1>
+<table class="kv">
+  <tr><th>Student ID</th><td>{{ s.student_id }}</td></tr>
+  <tr><th>Session</th><td>{{ s.session_id }}</td></tr>
+  <tr><th>Started</th><td>{{ s.consent_at | fmt_time }}</td></tr>
+  <tr><th>Ended</th><td>{{ s.ended_at | fmt_time }}</td></tr>
+  <tr><th>Total flagged events</th><td>{{ events | length }}</td></tr>
+  <tr><th>Suspicion score</th><td>{{ score }}</td></tr>
+  <tr><th>Reviewer decision</th><td>{{ review.decision if review else 'Pending review' }}</td></tr>
+  <tr><th>Reviewer notes</th><td>{{ review.notes if review else '-' }}</td></tr>
+</table>
+
+<h2>Events by type</h2>
+<table>
+  <thead><tr><th>Type</th><th>Count</th></tr></thead>
+  <tbody>{% for k, v in counts.items() %}<tr><td>{{ k }}</td><td>{{ v }}</td></tr>{% endfor %}</tbody>
+</table>
+
+<h2>Timeline</h2>
+<table>
+  <thead><tr><th>Time</th><th>Event</th><th>Duration (s)</th><th>Details</th></tr></thead>
+  <tbody>{% for e in events %}<tr><td>{{ e.ts | fmt_time }}</td><td>{{ e.event_type }}</td><td>{{ '%.1f' % e.duration }}</td><td>{{ e.details }}</td></tr>{% endfor %}</tbody>
+</table>
+
+<p class="hint">Disclaimer: automated flags are indicators for human review, not evidence of misconduct. Only event metadata is stored; no video or images are retained.</p>
+<p class="noprint"><button onclick="window.print()">Print / Save as PDF</button></p>
+{% endblock %}

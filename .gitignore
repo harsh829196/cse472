@@ -1,0 +1,6 @@
+venv/
+__pycache__/
+*.pyc
+proctor.db
+.env
+.DS_Store

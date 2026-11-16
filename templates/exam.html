@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Exam - ProctorLite{% endblock %}
+{% block content %}
+<div id="monitor-bar">
+  <span class="dot"></span> Monitoring active (face analysis runs on your device; only event logs are sent)
+  <span id="cv-status">loading camera model...</span>
+  <span id="timer"></span>
+</div>
+
+<div class="exam-layout">
+  <form id="exam-form" class="card">
+    <h1>Sample Exam</h1>
+    <p>Student: <b>{{ student_id }}</b></p>
+    {% for q in questions %}
+    <fieldset>
+      <legend>{{ loop.index }}. {{ q.q }}</legend>
+      {% for opt in q.options %}
+      <label class="opt"><input type="radio" name="q{{ q.id }}" value="{{ opt }}"> {{ opt }}</label>
+      {% endfor %}
+    </fieldset>
+    {% endfor %}
+    <button type="submit">Submit exam</button>
+  </form>
+
+  <aside>
+    <video id="cam" autoplay muted playsinline></video>
+    <p class="hint">Your camera preview. Video is not recorded or uploaded.</p>
+    <button id="fs-btn" type="button">Enter fullscreen</button>
+  </aside>
+</div>
+
+<script>
+  const SESSION_ID = "{{ session_id }}";
+  const STUDENT_ID = "{{ student_id }}";
+  const EXAM_MINUTES = 10;
+</script>
+<script type="module" src="{{ url_for('static', filename='proctor.js') }}"></script>
+{% endblock %}

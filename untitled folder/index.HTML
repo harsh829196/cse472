@@ -1,0 +1,67 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>College Student Feedback System</title>
+
+    <!-- Connect CSS -->
+    <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+
+    <div class="container">
+
+        <h1>College Feedback System</h1>
+        <p>Student Feedback Portal</p>
+
+        <form id="feedbackForm">
+
+            <label for="name">Student Name</label>
+            <input
+                type="text"
+                id="name"
+                placeholder="Enter your full name"
+                required
+            >
+
+            <label for="register">Registration Number</label>
+            <input
+                type="text"
+                id="register"
+                placeholder="Enter your registration number"
+                required
+            >
+
+            <label for="subject">Subject Name</label>
+            <input
+                type="text"
+                id="subject"
+                placeholder="Enter subject name"
+                required
+            >
+
+            <label for="feedback">Your Feedback</label>
+            <textarea
+                id="feedback"
+                placeholder="Write your feedback here..."
+                required
+            ></textarea>
+
+            <button type="submit">Submit Feedback</button>
+
+        </form>
+
+        <p id="message"></p>
+
+    </div>
+
+    <!-- Connect JavaScript -->
+    <script src="/script.js"></script>
+
+</body>
+</html>
