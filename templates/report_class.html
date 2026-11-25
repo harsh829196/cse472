@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}Class Integrity Summary - ProctorGuard AI{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+  <div>
+    <h1 style="font-size: 1.6rem; font-weight: 700; color: #fff;">Institutional Examination Integrity Summary</h1>
+    <p style="color: var(--text-muted); font-size: 0.92rem;">
+      Class-wide aggregate audit metrics and violation distribution for the Examination Cell.
+    </p>
+  </div>
+  <div class="noprint" style="display: flex; gap: 10px;">
+    <button onclick="window.print()" class="btn btn-primary">
+      <span>🖨️</span> Export PDF Summary
+    </button>
+  </div>
+</div>
+
+<!-- Class KPIs -->
+<div class="stats-grid">
+  <div class="stat-card card-total">
+    <span class="stat-number">{{ total_sessions }}</span>
+    <span class="stat-label">Total Candidates Proctored</span>
+  </div>
+  <div class="stat-card card-clean">
+    <span class="stat-number">{{ compliance_rate }}%</span>
+    <span class="stat-label">Integrity Compliance Rate</span>
+  </div>
+  <div class="stat-card card-flagged">
+    <span class="stat-number">{{ flagged_count }}</span>
+    <span class="stat-label">High-Risk Flagged Candidates</span>
+  </div>
+  <div class="stat-card card-terminated">
+    <span class="stat-number">{{ auto_terminated_count }}</span>
+    <span class="stat-label">Auto-Submitted (5 Strikes Hit)</span>
+  </div>
+</div>
+
+<!-- Aggregate Incident Matrix -->
+<div class="glass-card" style="margin-bottom: 24px;">
+  <h2 style="font-size: 1.2rem; color: #fff; margin-bottom: 14px;">Class-Wide Incident Occurrence Breakdown</h2>
+  <div class="table-responsive">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Incident Category</th>
+          <th>Total Incidents Detected</th>
+          <th>Detection Mechanism</th>
+          <th>Severity Impact</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for k, v in event_totals.items() %}
+        <tr>
+          <td><code>{{ k }}</code></td>
+          <td><strong style="color: var(--cyan); font-size: 1.05rem;">{{ v }}</strong></td>
+          <td style="font-size: 0.85rem; color: var(--text-muted);">
+            {% if 'HEAD' in k or 'GAZE' in k or 'FACE' in k %}
+            On-Device MediaPipe Computer Vision
+            {% elif 'WINDOW' in k or 'TAB' in k or 'FOCUS' in k or 'FULLSCREEN' in k %}
+            Browser Window &amp; Focus Integrity Monitor
+            {% elif 'WARNING' in k or 'AUTO_SUBMIT' in k %}
+            Automated Strike Engine (5-Warning Policy)
+            {% else %}
+            System Telemetry
+            {% endif %}
+          </td>
+          <td>
+            {% if 'WARNING' in k or 'AUTO_SUBMIT' in k or 'WINDOW_SLIDE' in k %}
+            <span class="badge-tag badge-danger">High Impact</span>
+            {% elif 'HEAD' in k or 'TAB' in k or 'FOCUS' in k %}
+            <span class="badge-tag badge-warning">Moderate</span>
+            {% else %}
+            <span class="badge-tag badge-success">Informational</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" style="text-align: center; color: var(--text-dim);">No incidents recorded across sessions.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Student Master Roster -->
+<div class="glass-card">
+  <h2 style="font-size: 1.2rem; color: #fff; margin-bottom: 14px;">Candidate Master Integrity Register</h2>
+  <div class="table-responsive">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Candidate ID</th>
+          <th>Session</th>
+          <th>Events Count</th>
+          <th>Strikes (Max 5)</th>
+          <th>Suspicion Score</th>
+          <th>Submission Status</th>
+          <th>Review Decision</th>
+          <th style="text-align: right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td><strong>{{ r.s.student_id }}</strong></td>
+          <td><code>{{ r.s.session_id }}</code></td>
+          <td>{{ r.event_count }}</td>
+          <td>
+            {% if r.warnings >= 5 %}
+            <span class="badge-tag badge-danger">🛑 5 / 5 (Max)</span>
+            {% elif r.warnings > 0 %}
+            <span class="badge-tag badge-warning">⚠️ {{ r.warnings }} / 5</span>
+            {% else %}
+            <span class="badge-tag badge-success">✓ 0 Strikes</span>
+            {% endif %}
+          </td>
+          <td style="font-family: 'JetBrains Mono', monospace; font-weight: 700;">{{ r.score }}</td>
+          <td>
+            {% if r.is_terminated %}
+            <span style="color: #f87171; font-weight: 600;">Auto-Submitted (5 Strikes)</span>
+            {% else %}
+            <span style="color: var(--text-muted);">{{ r.s.ended_reason or 'Normal' }}</span>
+            {% endif %}
+          </td>
+          <td>{{ r.decision }}</td>
+          <td style="text-align: right;">
+            <a href="{{ url_for('session_detail', sid=r.s.session_id) }}" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.78rem;">
+              Review
+            </a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" style="text-align: center; color: var(--text-dim);">No candidate records.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+

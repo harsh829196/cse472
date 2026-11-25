@@ -3,17 +3,32 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}ProctorLite{% endblock %}</title>
+  <title>{% block title %}ProctorGuard AI - Autonomous Exam Integrity Monitoring{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236366f1'><path d='M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z'/></svg>">
 </head>
 <body>
-  <header>
-    <strong>ProctorLite</strong>
-    <nav>
-      <a href="{{ url_for('consent') }}">Student</a>
-      <a href="{{ url_for('dashboard') }}">Invigilator</a>
+  <header class="app-header">
+    <a href="{{ url_for('consent') }}" class="brand-wrapper">
+      <div class="brand-logo-icon">🛡️</div>
+      <span class="brand-title">ProctorGuard AI</span>
+      <span class="brand-badge">PROCTOR-OS</span>
+    </a>
+    <nav class="main-nav">
+      <a href="{{ url_for('consent') }}" class="{% if request.path == '/' or request.path == '/exam' %}active{% endif %}">
+        <span>📝</span> Student Portal
+      </a>
+      <a href="{{ url_for('dashboard') }}" class="{% if '/dashboard' in request.path or '/session' in request.path %}active{% endif %}">
+        <span>📊</span> Invigilator Console
+      </a>
+      <a href="{{ url_for('class_report') }}" class="{% if request.path == '/report' %}active{% endif %}">
+        <span>📋</span> Integrity Reports
+      </a>
     </nav>
   </header>
-  <main>{% block content %}{% endblock %}</main>
+
+  <main class="main-content">
+    {% block content %}{% endblock %}
+  </main>
 </body>
 </html>

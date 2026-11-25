@@ -1,1 +1,7 @@
 flask>=3.0
+opencv-python
+numpy
+pandas
+torch
+torchvision
+pillow

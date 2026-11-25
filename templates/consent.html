@@ -1,36 +1,100 @@
 {% extends "base.html" %}
-{% block title %}Consent - ProctorLite{% endblock %}
-{% block content %}
-<h1>Online Exam: Monitoring Notice &amp; Consent</h1>
-<p>Please read this before you begin. You must agree to continue.</p>
+{% block title %}Examination Consent &amp; Verification - ProctorGuard AI{% endblock %}
 
-<div class="card">
-  <h2>What is monitored</h2>
-  <ul>
-    <li><b>Webcam (face analysis only):</b> number of faces in frame, whether your face is absent, head direction and gaze direction.</li>
-    <li><b>Browser activity:</b> switching tabs, losing window focus, leaving fullscreen, copy/paste attempts.</li>
-  </ul>
-  <h2>What is stored</h2>
-  <ul>
-    <li>Only <b>event records</b>: event type, timestamp, duration.</li>
-    <li><b>No video, images or audio</b> leave your computer. Face analysis runs locally in your browser.</li>
-  </ul>
-  <h2>How it is used</h2>
-  <ul>
-    <li>Events are shown to a human invigilator for review. <b>Nothing is penalised automatically.</b></li>
-    <li>Flags are indicators, not proof. You can contest any flag.</li>
-    <li>Data is kept for <b>{{ retention_days }} days</b>, then deleted.</li>
-  </ul>
+{% block content %}
+<div class="glass-card" style="margin-bottom: 24px;">
+  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+    <div>
+      <h1 style="font-size: 1.6rem; font-weight: 700; color: #fff;">Autonomous Exam Integrity &amp; Privacy Protocol</h1>
+      <p style="color: var(--text-muted); font-size: 0.95rem;">Please review the automated monitoring terms and verify your webcam before entering the examination environment.</p>
+    </div>
+    <div class="status-pill status-ok">
+      <span class="pulse-dot green"></span> SYSTEM OPERATIONAL
+    </div>
+  </div>
 </div>
 
-<form method="post" action="{{ url_for('consent_submit') }}" class="card">
-  <label>Student ID
-    <input name="student_id" required autocomplete="off">
-  </label>
-  <label class="check">
-    <input type="checkbox" name="agree" required>
-    I have read the notice above and consent to this monitoring for this exam.
-  </label>
-  <button type="submit">Start exam</button>
-</form>
+<div class="consent-layout">
+  <!-- Left Side: Transparency & Rules Cards -->
+  <div class="consent-cards">
+    <div class="info-feature-card">
+      <h3><span>👁️</span> Computer Vision &amp; Head Movement Monitoring</h3>
+      <ul>
+        <li>Real-time on-device facial landmarking calculates head yaw (looking sideways) and pitch (looking down at lap/phone).</li>
+        <li>Monitors for candidate absence or unauthorized additional persons in camera frame.</li>
+        <li><strong>Strict Warning Policy:</strong> Suspicious movements trigger real-time integrity strikes. Reaching <strong>{{ max_warnings }} warnings</strong> will trigger an immediate automatic submission of your exam.</li>
+      </ul>
+    </div>
+
+    <div class="info-feature-card">
+      <h3><span>🪟</span> Window Sliding &amp; Application Integrity Tracking</h3>
+      <ul>
+        <li>Detects window sliding, snapping to split-screen, or resizing during the test.</li>
+        <li>Monitors tab-switching, window blur (clicking outside the exam), and leaving fullscreen.</li>
+        <li>Any window manipulation or switching counts directly toward your <strong>{{ max_warnings }} strikes limit</strong>.</li>
+      </ul>
+    </div>
+
+    <div class="info-feature-card">
+      <h3><span>🔒</span> Privacy &amp; Data Security Guarantee</h3>
+      <ul>
+        <li><strong>Zero Video/Audio Uploads:</strong> All computer vision processing executes strictly in your local browser through client-side WebAssembly.</li>
+        <li><strong>Camera Frames:</strong> MediaPipe runs locally in the browser; periodic low-resolution JPEG frames are sent to this server only for analysis by the trained <code>ai_exam_camera</code> model.</li>
+        <li>Only lightweight metadata records (event category, timestamp, duration) are stored for audit; raw frames are not saved.</li>
+        <li>Audit logs are securely retained for <strong>{{ retention_days }} days</strong> and reviewed by faculty invigilators before any academic action is taken.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Right Side: Pre-Flight Camera Self Check & Entry Form -->
+  <aside class="self-test-panel">
+    <div class="glass-card">
+      <h3 style="font-size: 1.1rem; color: #fff; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+        <span>📹</span> Webcam Pre-Flight Check
+      </h3>
+      <div class="self-test-video-box">
+        <video id="test-cam" autoplay muted playsinline></video>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+        <span id="cam-test-status" style="font-size: 0.8rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">Camera preview active</span>
+        <button id="cam-retry-btn" type="button" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.78rem;">Test Feed</button>
+      </div>
+    </div>
+
+    <form method="post" action="{{ url_for('consent_submit') }}" class="glass-card" style="display: flex; flex-direction: column; gap: 16px;">
+      <div class="form-group">
+        <label for="student_id">Institutional Student ID</label>
+        <input id="student_id" name="student_id" class="input-styled" placeholder="e.g. CS2026-8942" required autocomplete="off">
+      </div>
+
+      <label class="checkbox-label">
+        <input type="checkbox" name="agree" required>
+        <span>I have read the integrity rules. I acknowledge that suspicious head movement, looking away, or sliding windows will trigger warnings, and <strong>5 warnings will auto-submit my test</strong>.</span>
+      </label>
+
+      <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px;">
+        <span>🚀</span> Authorize &amp; Start Exam
+      </button>
+    </form>
+  </aside>
+</div>
+
+<script>
+  // Simple camera pre-flight tester on consent screen
+  async function testCamera() {
+    const video = document.getElementById('test-cam');
+    const status = document.getElementById('cam-test-status');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      video.srcObject = stream;
+      status.textContent = "✓ Camera verified";
+      status.style.color = "var(--emerald)";
+    } catch (e) {
+      status.textContent = "⚠️ Please allow camera access";
+      status.style.color = "var(--crimson)";
+    }
+  }
+  testCamera();
+  document.getElementById('cam-retry-btn')?.addEventListener('click', testCamera);
+</script>
 {% endblock %}

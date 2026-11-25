@@ -1,32 +1,182 @@
 {% extends "base.html" %}
-{% block title %}Exam - ProctorLite{% endblock %}
+{% block title %}Live Exam - ProctorGuard AI{% endblock %}
+
 {% block content %}
-<div id="monitor-bar">
-  <span class="dot"></span> Monitoring active (face analysis runs on your device; only event logs are sent)
-  <span id="cv-status">loading camera model...</span>
-  <span id="timer"></span>
+<!-- Security Top Header Bar -->
+<div class="exam-top-bar">
+  <div class="top-bar-left">
+    <div id="proctor-status-pill" class="status-pill status-ok">
+      <span class="pulse-dot green"></span> MONITORING ACTIVE
+    </div>
+    <div class="exam-title-badge">
+      <span class="exam-course-name">CS472: Systems &amp; AI Final Assessment</span>
+      <span class="exam-student-tag">Candidate: <strong>{{ student_id }}</strong> | Session: <code>{{ session_id }}</code></span>
+    </div>
+  </div>
+
+  <div class="top-bar-center">
+    <!-- Strike Tracker Bar -->
+    <div class="strikes-container" title="Warning policy: Exceeding 5 warnings will auto-submit the exam">
+      <span class="strikes-label">Strikes:</span>
+      <div class="strikes-list">
+        {% for i in range(1, max_warnings + 1) %}
+        <div class="strike-indicator">
+          <span class="strike-dot">{{ i }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      <span id="warning-summary-text" class="warning-badge badge-clean">0 / {{ max_warnings }} Warnings</span>
+    </div>
+  </div>
+
+  <div class="top-bar-right">
+    <div class="timer-widget">
+      <span class="timer-label">Time Remaining:</span>
+      <span id="timer">10:00</span>
+    </div>
+    <button id="fs-btn" type="button" class="btn btn-secondary" title="Lock exam into fullscreen">
+      <span>⛶</span> Fullscreen
+    </button>
+  </div>
 </div>
 
-<div class="exam-layout">
-  <form id="exam-form" class="card">
-    <h1>Sample Exam</h1>
-    <p>Student: <b>{{ student_id }}</b></p>
-    {% for q in questions %}
-    <fieldset>
-      <legend>{{ loop.index }}. {{ q.q }}</legend>
-      {% for opt in q.options %}
-      <label class="opt"><input type="radio" name="q{{ q.id }}" value="{{ opt }}"> {{ opt }}</label>
-      {% endfor %}
-    </fieldset>
-    {% endfor %}
-    <button type="submit">Submit exam</button>
-  </form>
+<!-- Main 2-Column Exam Grid -->
+<div class="exam-grid">
+  <!-- Left Column: Questions Card -->
+  <div class="glass-card questions-card">
+    <div class="exam-progress-header">
+      <div class="progress-meta">
+        <span>Question Progress: <strong id="answered-count">0</strong> of {{ questions|length }} Answered</span>
+        <span>Automatic Save Active</span>
+      </div>
+      <div class="progress-track">
+        <div id="exam-progress-fill" class="progress-fill"></div>
+      </div>
+      <div class="q-nav-pills">
+        {% for q in questions %}
+        <div class="q-nav-pill {% if loop.first %}active{% endif %}" data-target="q-block-{{ q.id }}">
+          {{ loop.index }}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
 
-  <aside>
-    <video id="cam" autoplay muted playsinline></video>
-    <p class="hint">Your camera preview. Video is not recorded or uploaded.</p>
-    <button id="fs-btn" type="button">Enter fullscreen</button>
+    <!-- Exam Form -->
+    <form id="exam-form" class="exam-questions-form">
+      {% for q in questions %}
+      <div id="q-block-{{ q.id }}" class="question-block" style="margin-bottom: 24px;">
+        <div class="question-header">
+          <span class="q-number-badge">QUESTION {{ loop.index }}</span>
+          <h2 class="question-title">{{ q.q }}</h2>
+        </div>
+        <div class="options-group">
+          {% for opt in q.options %}
+          <label class="option-card">
+            <input type="radio" name="q{{ q.id }}" value="{{ opt }}">
+            <span class="option-text">{{ opt }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+
+      <div class="exam-actions-bar">
+        <span class="exam-student-tag">Review all questions before submitting.</span>
+        <button type="submit" class="btn btn-primary">
+          <span>✓</span> Submit Examination
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Right Column: Live Proctor HUD -->
+  <aside class="proctor-sidebar">
+    <!-- Camera Feed HUD -->
+    <div class="camera-hud-card">
+      <div class="video-wrapper">
+        <video id="cam" autoplay muted playsinline></video>
+        <canvas id="cam-overlay"></canvas>
+      </div>
+      <div class="camera-hud-footer">
+        <span class="cv-status-tag" id="cv-status">Initializing AI Vision...</span>
+        <span class="brand-badge">HUD 1080p</span>
+      </div>
+    </div>
+
+    <!-- Live Telemetry -->
+    <div class="telemetry-card">
+      <div class="telemetry-header">
+        <span>Live Sensor Telemetry</span>
+        <span>60 FPS</span>
+      </div>
+      <div class="telemetry-grid">
+        <div class="tel-cell">
+          <span class="tel-label">Head Yaw (Turn)</span>
+          <span id="tel-yaw" class="tel-value tel-good">0° ✓</span>
+        </div>
+        <div class="tel-cell">
+          <span class="tel-label">Head Pitch (Angle)</span>
+          <span id="tel-pitch" class="tel-value tel-good">0° ✓</span>
+        </div>
+        <div class="tel-cell">
+          <span class="tel-label">Eye Gaze</span>
+          <span id="tel-gaze" class="tel-value tel-good">Centered ✓</span>
+        </div>
+        <div class="tel-cell">
+          <span class="tel-label">Presence</span>
+          <span id="tel-faces" class="tel-value tel-good">1 Candidate ✓</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Strike Incident Log -->
+    <div class="strike-history-card">
+      <div class="strike-history-title">Integrity Incident Log (Max 5)</div>
+      <ul id="strike-history-list" class="strike-history-list">
+        <li class="empty-strikes">No integrity violations recorded.</li>
+      </ul>
+    </div>
+
+    <!-- Active Proctoring Rules -->
+    <div class="rules-card">
+      <div class="rules-title">Integrity Protocols</div>
+      <ul class="rules-list">
+        <li>Maintain face centered in front of camera.</li>
+        <li>Do not look down, sideways, or off-screen.</li>
+        <li>Do not slide, resize, or switch window tabs.</li>
+        <li><strong>Reaching 5 warnings will terminate &amp; auto-submit the exam.</strong></li>
+      </ul>
+    </div>
   </aside>
+</div>
+
+<!-- Floating Warning Modal Popup -->
+<div id="warning-modal" class="warning-modal-overlay">
+  <div class="warning-modal-box">
+    <div class="warning-icon-wrapper">⚠️</div>
+    <h2 id="warning-modal-title">INTEGRITY WARNING</h2>
+    <div id="warning-strike-text" class="warning-badge badge-critical" style="margin-bottom: 12px; display: inline-block;">
+      1 / 5 STRIKES
+    </div>
+    <p id="warning-modal-desc">Suspicious head movement detected.</p>
+    <button id="warning-dismiss-btn" type="button" class="btn btn-danger" style="width: 100%;">
+      I Acknowledge &amp; Return to Exam
+    </button>
+  </div>
+</div>
+
+<!-- Fullscreen Auto-Submit Lockdown Overlay -->
+<div id="termination-lockdown" class="termination-lockdown-overlay">
+  <div class="lockdown-content">
+    <div class="lockdown-icon">🛑</div>
+    <h1 class="lockdown-title">EXAM TERMINATED: 5 WARNINGS EXCEEDED</h1>
+    <p class="lockdown-sub">
+      You have accumulated 5 integrity warnings for suspicious head movement or window sliding activities.
+      Per examination policy, your test session has been frozen and is being automatically submitted for invigilator review.
+    </p>
+    <div class="lockdown-spinner"></div>
+    <p style="color: var(--text-dim); margin-top: 14px; font-size: 0.85rem;">Securing test responses and audit logs...</p>
+  </div>
 </div>
 
 <script>

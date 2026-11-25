@@ -1,28 +1,181 @@
 {% extends "base.html" %}
-{% block title %}Dashboard - ProctorLite{% endblock %}
+{% block title %}Invigilator Dashboard - ProctorGuard AI{% endblock %}
+
 {% block content %}
-<h1>Invigilator Dashboard</h1>
-<p class="hint">Sessions are ranked by suspicion score to help prioritise review. No automatic penalties are applied.</p>
-<table>
-  <thead>
-    <tr><th>Student</th><th>Started</th><th>Events</th><th>Score</th><th>Decision</th><th></th></tr>
-  </thead>
-  <tbody>
-  {% for r in rows %}
-    <tr>
-      <td>{{ r.s.student_id }}</td>
-      <td>{{ r.s.consent_at | fmt_time }}</td>
-      <td>{{ r.n }}</td>
-      <td>{{ r.score }}</td>
-      <td>{{ r.decision }}</td>
-      <td>
-        <a href="{{ url_for('session_detail', sid=r.s.session_id) }}">Review</a> |
-        <a href="{{ url_for('report', sid=r.s.session_id) }}">Report</a>
-      </td>
-    </tr>
-  {% else %}
-    <tr><td colspan="6">No sessions yet.</td></tr>
-  {% endfor %}
-  </tbody>
-</table>
+<div class="dashboard-header">
+  <div>
+    <h1 style="font-size: 1.6rem; font-weight: 700; color: #fff;">Faculty Invigilation Command Center</h1>
+    <p style="color: var(--text-muted); font-size: 0.92rem;">
+      Real-time automated integrity telemetry. Ranked by suspicion score to prioritize human invigilator review.
+    </p>
+  </div>
+  <a href="{{ url_for('class_report') }}" class="btn btn-secondary">
+    <span>📋</span> Comprehensive Class Integrity Audit
+  </a>
+</div>
+
+<!-- High-Level KPI Metric Cards -->
+<div class="stats-grid">
+  <div class="stat-card card-total">
+    <span class="stat-number">{{ stats.total }}</span>
+    <span class="stat-label">Total Exam Sessions</span>
+  </div>
+  <div class="stat-card card-clean">
+    <span class="stat-number">{{ stats.clean }}</span>
+    <span class="stat-label">Clean / Low-Risk Sessions</span>
+  </div>
+  <div class="stat-card card-flagged">
+    <span class="stat-number">{{ stats.flagged }}</span>
+    <span class="stat-label">Flagged for Priority Review</span>
+  </div>
+  <div class="stat-card card-terminated">
+    <span class="stat-number">{{ stats.terminated }}</span>
+    <span class="stat-label">Auto-Submitted (5 Strikes Limit)</span>
+  </div>
+</div>
+
+<!-- Controls & Filter Bar -->
+<div class="table-controls">
+  <div class="filter-pills">
+    <button class="filter-pill active" data-filter="all">All ({{ rows|length }})</button>
+    <button class="filter-pill" data-filter="terminated">Auto-Terminated (5 Strikes)</button>
+    <button class="filter-pill" data-filter="flagged">Flagged High Risk</button>
+    <button class="filter-pill" data-filter="clean">Clean</button>
+  </div>
+  <div class="search-input-wrapper">
+    <input type="text" id="session-search" class="search-input" placeholder="🔍 Search Student ID or Session...">
+  </div>
+</div>
+
+<!-- Sessions Data Table -->
+<div class="table-responsive">
+  <table class="data-table" id="sessions-table">
+    <thead>
+      <tr>
+        <th>Student ID</th>
+        <th>Session</th>
+        <th>Start Time</th>
+        <th>Strikes (Max 5)</th>
+        <th>Suspicion Score</th>
+        <th>Risk Level</th>
+        <th>Submission State</th>
+        <th>Review Decision</th>
+        <th style="text-align: right;">Audit Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr class="session-row" 
+          data-risk="{{ r.risk_tier }}" 
+          data-terminated="{{ 'true' if r.is_terminated else 'false' }}"
+          data-student="{{ r.s.student_id|lower }}"
+          data-sid="{{ r.s.session_id|lower }}">
+        <td>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 28px; height: 28px; border-radius: 50%; background: rgba(99, 102, 241, 0.2); color: var(--cyan); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.75rem;">
+              {{ r.s.student_id[:2]|upper }}
+            </div>
+            <strong>{{ r.s.student_id }}</strong>
+          </div>
+        </td>
+        <td><code style="color: var(--text-dim); font-size: 0.8rem;">{{ r.s.session_id }}</code></td>
+        <td style="font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; color: var(--text-muted);">
+          {{ r.s.consent_at | fmt_time }}
+        </td>
+        <td>
+          {% if r.warnings >= 5 %}
+          <span class="badge-tag badge-danger">🛑 5 / 5 (Max)</span>
+          {% elif r.warnings > 0 %}
+          <span class="badge-tag badge-warning">⚠️ {{ r.warnings }} / 5</span>
+          {% else %}
+          <span class="badge-tag badge-success">✓ 0 Strikes</span>
+          {% endif %}
+        </td>
+        <td>
+          <span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #fff;">
+            {{ r.score }}
+          </span>
+          <span style="font-size: 0.75rem; color: var(--text-dim);">({{ r.n }} events)</span>
+        </td>
+        <td>
+          <span class="badge-tag {{ r.badge_class }}">
+            {{ r.risk_tier }}
+          </span>
+        </td>
+        <td style="font-size: 0.85rem;">
+          {% if r.is_terminated %}
+          <span style="color: #f87171; font-weight: 600;">Auto-Submitted (5 Strikes)</span>
+          {% else %}
+          <span style="color: var(--text-muted);">{{ r.s.ended_reason or 'Normal' }}</span>
+          {% endif %}
+        </td>
+        <td>
+          <span style="font-weight: 500; font-size: 0.85rem; color: {% if r.decision == 'Confirmed' %}#f87171{% elif r.decision == 'Dismissed' %}#34d399{% else %}var(--text-muted){% endif %};">
+            {{ r.decision }}
+          </span>
+        </td>
+        <td style="text-align: right;">
+          <div style="display: inline-flex; gap: 8px;">
+            <a href="{{ url_for('session_detail', sid=r.s.session_id) }}" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.78rem;">
+              Audit Session
+            </a>
+            <a href="{{ url_for('report', sid=r.s.session_id) }}" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.78rem;">
+              Report
+            </a>
+          </div>
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="9" style="text-align: center; padding: 32px; color: var(--text-dim);">
+          No examination sessions recorded yet.
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<script>
+  // Dynamic client-side filtering and search
+  const searchInput = document.getElementById('session-search');
+  const filterPills = document.querySelectorAll('.filter-pill');
+  const rows = document.querySelectorAll('.session-row');
+
+  let currentFilter = 'all';
+
+  function applyFilters() {
+    const query = searchInput.value.toLowerCase().trim();
+    rows.forEach(row => {
+      const student = row.dataset.student;
+      const sid = row.dataset.sid;
+      const risk = row.dataset.risk;
+      const isTerminated = row.dataset.terminated === 'true';
+
+      const matchesSearch = student.includes(query) || sid.includes(query);
+      let matchesFilter = true;
+
+      if (currentFilter === 'terminated') {
+        matchesFilter = isTerminated;
+      } else if (currentFilter === 'flagged') {
+        matchesFilter = (risk === 'HIGH' || risk === 'CRITICAL');
+      } else if (currentFilter === 'clean') {
+        matchesFilter = (risk === 'LOW');
+      }
+
+      row.style.display = (matchesSearch && matchesFilter) ? '' : 'none';
+    });
+  }
+
+  searchInput.addEventListener('input', applyFilters);
+
+  filterPills.forEach(pill => {
+    pill.addEventListener('click', () => {
+      filterPills.forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      currentFilter = pill.dataset.filter;
+      applyFilters();
+    });
+  });
+</script>
 {% endblock %}

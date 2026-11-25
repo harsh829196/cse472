@@ -1,34 +1,207 @@
 {% extends "base.html" %}
-{% block title %}Session {{ s.student_id }} - ProctorLite{% endblock %}
+{% block title %}Session Review - {{ s.student_id }} - ProctorGuard AI{% endblock %}
+
 {% block content %}
-<h1>Session review: {{ s.student_id }}</h1>
-<p>Started {{ s.consent_at | fmt_time }} | Ended {{ s.ended_at | fmt_time }} | Suspicion score <b>{{ score }}</b></p>
-<p class="hint">Flags are indicators, not proof. Please review in context before deciding.</p>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+  <div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <h1 style="font-size: 1.5rem; font-weight: 700; color: #fff;">Audit Review: {{ s.student_id }}</h1>
+      {% if is_terminated %}
+      <span class="badge-tag badge-danger">🛑 AUTO-SUBMITTED (5 STRIKES EXCEEDED)</span>
+      {% elif score >= 8 %}
+      <span class="badge-tag badge-danger">HIGH RISK (Score {{ score }})</span>
+      {% elif score >= 4 %}
+      <span class="badge-tag badge-warning">ELEVATED RISK (Score {{ score }})</span>
+      {% else %}
+      <span class="badge-tag badge-success">CLEAN / NORMAL (Score {{ score }})</span>
+      {% endif %}
+    </div>
+    <p style="color: var(--text-muted); font-size: 0.88rem;">Session <code>{{ s.session_id }}</code> | Started {{ s.consent_at | fmt_time }} | Ended {{ s.ended_at | fmt_time }}</p>
+  </div>
+  <div style="display: flex; gap: 10px;">
+    <a href="{{ url_for('report', sid=s.session_id) }}" class="btn btn-primary">
+      <span>📄</span> Generate Formal Report
+    </a>
+    <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
+      <span>←</span> Back to Dashboard
+    </a>
+  </div>
+</div>
 
-<h2>Event counts</h2>
-<ul>
-  {% for k, v in counts.items() %}<li>{{ k }}: {{ v }}</li>{% else %}<li>No events.</li>{% endfor %}
-</ul>
+<!-- Session Metrics Summary -->
+<div class="stats-grid" style="margin-bottom: 20px;">
+  <div class="stat-card">
+    <span class="stat-number">{{ warnings }} / {{ max_warnings }}</span>
+    <span class="stat-label">Warnings / Strikes Incurred</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-number">{{ score }}</span>
+    <span class="stat-label">Total Suspicion Score</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-number">{{ events|length }}</span>
+    <span class="stat-label">Total Logged Telemetry Events</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-number">{{ duration | fmt_duration }}</span>
+    <span class="stat-label">Exam Duration</span>
+  </div>
+</div>
 
-<h2>Timeline</h2>
-<table>
-  <thead><tr><th>Time</th><th>Event</th><th>Duration (s)</th><th>Details</th></tr></thead>
-  <tbody>
-  {% for e in events %}
-    <tr><td>{{ e.ts | fmt_time }}</td><td>{{ e.event_type }}</td><td>{{ '%.1f' % e.duration }}</td><td>{{ e.details }}</td></tr>
-  {% endfor %}
-  </tbody>
-</table>
+<!-- Strike Warnings Breakdown (Crucial for the 5-warning policy) -->
+{% if warning_events %}
+<div class="glass-card" style="margin-bottom: 24px; border-left: 4px solid var(--crimson);">
+  <h3 style="font-size: 1.1rem; color: #fca5a5; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+    <span>🚨</span> Incident Log: {{ warning_events|length }} Warnings Issued
+  </h3>
+  <div class="table-responsive">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Strike #</th>
+          <th>Timestamp</th>
+          <th>Trigger Category</th>
+          <th>Infraction Summary</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for w in warning_events %}
+        <tr>
+          <td><span class="badge-tag badge-danger">Strike {{ loop.index }}</span></td>
+          <td style="font-family: 'JetBrains Mono', monospace; font-size: 0.82rem;">{{ w.ts | fmt_time }}</td>
+          <td><strong>{{ w.event_type }}</strong></td>
+          <td style="font-size: 0.88rem; color: #fecaca;">{{ w.details }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
 
-<h2>Reviewer decision</h2>
-<form method="post" action="{{ url_for('review_submit', sid=s.session_id) }}" class="card">
-  <select name="decision">
-    {% for d in ['Dismissed', 'Needs follow-up', 'Confirmed'] %}
-    <option {% if review and review.decision == d %}selected{% endif %}>{{ d }}</option>
+<!-- Event Counts Matrix -->
+<div class="glass-card" style="margin-bottom: 24px;">
+  <h3 style="font-size: 1.1rem; color: #fff; margin-bottom: 14px;">Telemetry Event Breakdown</h3>
+  <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+    {% for k, v in counts.items() %}
+    <div style="background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 14px; display: flex; align-items: center; gap: 10px;">
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--text-muted);">{{ k }}</span>
+      <span style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; color: var(--cyan); font-size: 1rem;">{{ v }}</span>
+    </div>
+    {% else %}
+    <p style="color: var(--text-dim);">No telemetry events recorded during this session.</p>
     {% endfor %}
-  </select>
-  <textarea name="notes" rows="3" placeholder="Reviewer notes">{{ review.notes if review else '' }}</textarea>
-  <button type="submit">Save</button>
-</form>
-<p><a href="{{ url_for('report', sid=s.session_id) }}">Open integrity report</a> | <a href="{{ url_for('dashboard') }}">Back</a></p>
+  </div>
+</div>
+
+<!-- Interactive Timeline Table -->
+<div class="glass-card" style="margin-bottom: 24px;">
+  <h3 style="font-size: 1.1rem; color: #fff; margin-bottom: 14px;">Detailed Audit Timeline</h3>
+  <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>Event Type</th>
+          <th>Duration (sec)</th>
+          <th>Details &amp; Sensor Telemetry</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in events %}
+        <tr>
+          <td style="font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; color: var(--text-muted);">
+            {{ e.ts | fmt_time }}
+          </td>
+          <td>
+            {% if 'WARNING' in e.event_type or 'AUTO_SUBMIT' in e.event_type %}
+            <span class="badge-tag badge-danger">{{ e.event_type }}</span>
+            {% elif 'HEAD' in e.event_type or 'WINDOW' in e.event_type or 'TAB' in e.event_type %}
+            <span class="badge-tag badge-warning">{{ e.event_type }}</span>
+            {% else %}
+            <span class="badge-tag badge-success">{{ e.event_type }}</span>
+            {% endif %}
+          </td>
+          <td style="font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
+            {{ '%.1f' % e.duration if e.duration else '-' }}
+          </td>
+          <td style="font-size: 0.85rem; color: var(--text-main);">
+            {{ e.details or '-' }}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" style="text-align: center; color: var(--text-dim);">No events logged.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Student Answers Review -->
+{% if answers %}
+<div class="glass-card" style="margin-bottom: 24px;">
+  <h3 style="font-size: 1.1rem; color: #fff; margin-bottom: 14px;">Exam Submissions</h3>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Q#</th>
+        <th>Question Text</th>
+        <th>Selected Option</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for q in questions %}
+      <tr>
+        <td><strong>{{ q.id }}</strong></td>
+        <td>{{ q.q }}</td>
+        <td>
+          <span style="color: var(--cyan); font-weight: 500;">
+            {{ answers.get(q.id) or 'Unanswered' }}
+          </span>
+        </td>
+        <td>
+          {% if answers.get(q.id) == q.answer %}
+          <span class="badge-tag badge-success">Correct</span>
+          {% elif answers.get(q.id) %}
+          <span class="badge-tag badge-warning">Incorrect</span>
+          {% else %}
+          <span class="badge-tag" style="background: rgba(255,255,255,0.06); color: var(--text-dim);">Empty</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- Invigilator Determination Form -->
+<div class="glass-card">
+  <h3 style="font-size: 1.1rem; color: #fff; margin-bottom: 12px;">Official Invigilator Determination</h3>
+  <p style="color: var(--text-muted); font-size: 0.88rem; margin-bottom: 16px;">
+    Automated suspicion scores are advisory indicators. Please review recorded timeline context before issuing an academic integrity verdict.
+  </p>
+  <form method="post" action="{{ url_for('review_submit', sid=s.session_id) }}" style="display: flex; flex-direction: column; gap: 14px;">
+    <div class="form-group">
+      <label for="decision">Review Decision</label>
+      <select id="decision" name="decision" class="input-styled" style="background: var(--bg-surface); color: #fff;">
+        {% for d in ['Dismissed (Normal / False Positive)', 'Needs Follow-up Interview', 'Confirmed Academic Misconduct'] %}
+        <option value="{{ d }}" {% if review and review.decision == d %}selected{% endif %}>{{ d }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="notes">Invigilator Case Notes</label>
+      <textarea id="notes" name="notes" rows="4" class="input-styled" placeholder="Detail rationale, timestamps reviewed, and recommended follow-up actions...">{{ review.notes if review else '' }}</textarea>
+    </div>
+
+    <div>
+      <button type="submit" class="btn btn-primary">
+        <span>💾</span> Save Official Determination
+      </button>
+    </div>
+  </form>
+</div>
 {% endblock %}

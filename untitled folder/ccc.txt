@@ -1,2 +1,0 @@
-a collage wants to devlop a simple web appliction where student can submit their name , register number, submit name and feednack 
-you are required to develop and deply this appiliction unsing docker 

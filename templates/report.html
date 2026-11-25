@@ -1,30 +1,169 @@
 {% extends "base.html" %}
-{% block title %}Integrity Report - {{ s.student_id }}{% endblock %}
+{% block title %}Integrity Report - {{ s.student_id }} - ProctorGuard AI{% endblock %}
+
 {% block content %}
-<h1>Integrity Report</h1>
-<table class="kv">
-  <tr><th>Student ID</th><td>{{ s.student_id }}</td></tr>
-  <tr><th>Session</th><td>{{ s.session_id }}</td></tr>
-  <tr><th>Started</th><td>{{ s.consent_at | fmt_time }}</td></tr>
-  <tr><th>Ended</th><td>{{ s.ended_at | fmt_time }}</td></tr>
-  <tr><th>Total flagged events</th><td>{{ events | length }}</td></tr>
-  <tr><th>Suspicion score</th><td>{{ score }}</td></tr>
-  <tr><th>Reviewer decision</th><td>{{ review.decision if review else 'Pending review' }}</td></tr>
-  <tr><th>Reviewer notes</th><td>{{ review.notes if review else '-' }}</td></tr>
-</table>
+<div class="noprint" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+  <a href="{{ url_for('session_detail', sid=s.session_id) }}" class="btn btn-secondary">
+    <span>←</span> Back to Session
+  </a>
+  <div style="display: flex; gap: 10px;">
+    <button onclick="window.print()" class="btn btn-primary">
+      <span>🖨️</span> Print / Export PDF
+    </button>
+  </div>
+</div>
 
-<h2>Events by type</h2>
-<table>
-  <thead><tr><th>Type</th><th>Count</th></tr></thead>
-  <tbody>{% for k, v in counts.items() %}<tr><td>{{ k }}</td><td>{{ v }}</td></tr>{% endfor %}</tbody>
-</table>
+<div class="glass-card" style="padding: 36px; border: 1px solid var(--border-light); background: var(--bg-surface);">
+  <!-- Formal Header -->
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid var(--border); padding-bottom: 20px; margin-bottom: 24px;">
+    <div>
+      <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--cyan); font-weight: 700; margin-bottom: 4px;">
+        EXAMINATION INTEGRITY &amp; MONITORING CELL
+      </div>
+      <h1 style="font-size: 1.8rem; font-weight: 700; color: #fff;">Post-Exam Proctoring Audit Report</h1>
+      <p style="color: var(--text-muted); font-size: 0.9rem;">Course: CS472 Systems &amp; AI | System: ProctorGuard AI v2.4</p>
+    </div>
+    <div style="text-align: right;">
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: var(--text-muted);">
+        Report Ref: PG-{{ s.session_id|upper }}
+      </div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--text-dim); margin-top: 4px;">
+        Generated: {{ s.consent_at | fmt_time }}
+      </div>
+    </div>
+  </div>
 
-<h2>Timeline</h2>
-<table>
-  <thead><tr><th>Time</th><th>Event</th><th>Duration (s)</th><th>Details</th></tr></thead>
-  <tbody>{% for e in events %}<tr><td>{{ e.ts | fmt_time }}</td><td>{{ e.event_type }}</td><td>{{ '%.1f' % e.duration }}</td><td>{{ e.details }}</td></tr>{% endfor %}</tbody>
-</table>
+  <!-- Candidate Information Table -->
+  <h2 style="font-size: 1.15rem; color: #fff; margin-bottom: 12px;">1. Candidate &amp; Session Profile</h2>
+  <table class="summary-kv-table">
+    <tr>
+      <th>Student Identifier:</th>
+      <td><strong>{{ s.student_id }}</strong></td>
+      <th>Session ID:</th>
+      <td><code>{{ s.session_id }}</code></td>
+    </tr>
+    <tr>
+      <th>Exam Start Timestamp:</th>
+      <td>{{ s.consent_at | fmt_time }}</td>
+      <th>Exam End Timestamp:</th>
+      <td>{{ s.ended_at | fmt_time }}</td>
+    </tr>
+    <tr>
+      <th>Total Exam Duration:</th>
+      <td>{{ duration | fmt_duration }}</td>
+      <th>Submission Trigger:</th>
+      <td>
+        {% if is_terminated %}
+        <span class="badge-tag badge-danger">Terminated (5 Integrity Strikes Exceeded)</span>
+        {% else %}
+        <span class="badge-tag badge-success">{{ s.ended_reason or 'Normal Completion' }}</span>
+        {% endif %}
+      </td>
+    </tr>
+  </table>
 
-<p class="hint">Disclaimer: automated flags are indicators for human review, not evidence of misconduct. Only event metadata is stored; no video or images are retained.</p>
-<p class="noprint"><button onclick="window.print()">Print / Save as PDF</button></p>
+  <!-- Risk & Suspicion Matrix -->
+  <h2 style="font-size: 1.15rem; color: #fff; margin: 24px 0 12px;">2. AI Proctoring Risk Evaluation</h2>
+  <div class="stats-grid" style="margin-bottom: 20px;">
+    <div class="stat-card">
+      <span class="stat-number" style="color: {% if warnings >= 5 %}#f87171{% elif warnings > 0 %}#fbbf24{% else %}#34d399{% endif %};">
+        {{ warnings }} / 5
+      </span>
+      <span class="stat-label">Integrity Strikes Incurred</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-number">{{ score }}</span>
+      <span class="stat-label">Weighted Suspicion Score</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-number">{{ events|length }}</span>
+      <span class="stat-label">Total Logged Telemetry Events</span>
+    </div>
+  </div>
+
+  <!-- Strike Warnings Log -->
+  {% if warning_events %}
+  <h2 style="font-size: 1.15rem; color: #fca5a5; margin: 24px 0 12px;">3. Itemized Warning Strikes (Max 5 Policy)</h2>
+  <table class="data-table" style="margin-bottom: 20px;">
+    <thead>
+      <tr>
+        <th>Strike #</th>
+        <th>Timestamp</th>
+        <th>Violation Category</th>
+        <th>Details</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for w in warning_events %}
+      <tr>
+        <td><span class="badge-tag badge-danger">Strike {{ loop.index }}</span></td>
+        <td style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;">{{ w.ts | fmt_time }}</td>
+        <td><strong>{{ w.event_type }}</strong></td>
+        <td>{{ w.details }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  <!-- Event Counts Table -->
+  <h2 style="font-size: 1.15rem; color: #fff; margin: 24px 0 12px;">4. Aggregated Incident Count by Category</h2>
+  <table class="data-table" style="margin-bottom: 20px;">
+    <thead>
+      <tr>
+        <th>Event Category</th>
+        <th>Occurrences</th>
+        <th>Risk Implication</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for k, v in counts.items() %}
+      <tr>
+        <td><code>{{ k }}</code></td>
+        <td><strong>{{ v }}</strong></td>
+        <td>
+          {% if 'WARNING' in k or 'TERMINATED' in k or 'MULTIPLE' in k or 'WINDOW' in k %}
+          <span class="badge-tag badge-danger">High Severity</span>
+          {% elif 'HEAD' in k or 'TAB' in k or 'FOCUS' in k %}
+          <span class="badge-tag badge-warning">Moderate Severity</span>
+          {% else %}
+          <span class="badge-tag badge-success">Telemetry / Low</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Official Review Determination -->
+  <h2 style="font-size: 1.15rem; color: #fff; margin: 24px 0 12px;">5. Invigilator Adjudication</h2>
+  <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px; margin-bottom: 30px;">
+    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+      <span style="font-size: 0.88rem; color: var(--text-muted);">Official Finding:</span>
+      <strong style="color: {% if review and review.decision == 'Confirmed Academic Misconduct' %}#f87171{% elif review and review.decision == 'Dismissed (Normal / False Positive)' %}#34d399{% else %}var(--amber){% endif %};">
+        {{ review.decision if review else 'Pending Invigilator Adjudication' }}
+      </strong>
+    </div>
+    <div style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 4px;">Adjudication Notes:</div>
+    <div style="font-size: 0.92rem; color: #fff; background: var(--bg-surface); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+      {{ review.notes if (review and review.notes) else 'No adjudication remarks recorded.' }}
+    </div>
+  </div>
+
+  <!-- Sign-off Block -->
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--border);">
+    <div>
+      <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 40px;">Proctoring Officer Signature:</div>
+      <div style="border-top: 1px dashed var(--border-light); padding-top: 6px; font-size: 0.85rem; color: var(--text-dim);">
+        Faculty Invigilator / Examination Officer
+      </div>
+    </div>
+    <div>
+      <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 40px;">Verification Seal:</div>
+      <div style="border-top: 1px dashed var(--border-light); padding-top: 6px; font-size: 0.85rem; color: var(--text-dim);">
+        Institutional Examination Cell Authorization
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
